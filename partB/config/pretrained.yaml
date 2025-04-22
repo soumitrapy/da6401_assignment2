@@ -1,21 +1,19 @@
-project_name: cv_training
-run_name: resnet18_baseline
+project: dla2partb
+
+use_wandb: True
 
 dataset:
   name: CustomDataset
-  path: ./data/inaturalist_12K/
+  path: ../data/inaturalist_12K/
   img_size: 224
   class_names: ['Plantae', 'Mammalia', 'Animalia', 'Reptilia', 'Amphibia', 'Aves', 'Fungi', 'Arachnida', 'Mollusca', 'Insecta']
-  batch_size: 5
-
-train:
-  epochs: 10
-  log_interval: 10
-  val_interval: 2
+  batch_size: 100
 
 model:
   name: resnet50
+  in_channels: 3
   num_classes: 10
 
-# logging:
-#   log_interval: 10
+train:
+  epochs: 1
+  val_interval: 1
