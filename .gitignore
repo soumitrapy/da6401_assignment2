@@ -1,3 +1,8 @@
+# New Addition
+data/
+checkpoints/
+inaturalist_12K/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
