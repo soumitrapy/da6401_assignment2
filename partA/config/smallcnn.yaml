@@ -1,31 +1,24 @@
-project: templatecv
+project: dla2parta
 
-use_wandb: True
+use_wandb: False
 
 dataset:
   name: CustomDataset
-  path: ./data/inaturalist_12K/
+  path: ../data/inaturalist_12K/
   img_size: 256
   class_names: ['Plantae', 'Mammalia', 'Animalia', 'Reptilia', 'Amphibia', 'Aves', 'Fungi', 'Arachnida', 'Mollusca', 'Insecta']
   batch_size: 5
 
 train:
-  epochs: 2
-  optimizer: adam
-  scheduler: step
-  lr: 0.001
-  log_interval: 1
-  val_interval: 2
+  epochs: 1
+  val_interval: 1
 
 model:
   name: simplecnn
+  in_channels: 3
+  num_classes: 10
   num_layers: 5
   filters: [16, 32, 64, 32, 16]
   kernel_size: 3
   activation: relu
   dense_neurons: 100
-  num_classes: 10
-  in_channels: 3
-
-logging:
-  log_interval: 10
