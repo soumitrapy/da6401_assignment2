@@ -1,0 +1,26 @@
+method: bayes  # or 'grid' or 'random'
+metric:
+  name: val_accuracy
+  goal: maximize
+
+parameters:
+  num_filters:
+    values: [32, 64, 128]
+  filter_size:
+    values: [3, 5]
+  activation:
+    values: ['relu', 'gelu', 'silu', 'mish']
+  dense_neurons:
+    values: [256, 512, 1024]
+  dropout:
+    values: [0.2, 0.3]
+  batch_norm:
+    values: [True, False]
+  filter_organization:
+    values: ['constant', 'double', 'half']
+  data_augmentation:
+    values: [True, False]
+  learning_rate:
+    values: [0.001, 0.0005, 0.0001]
+  epochs:
+    value: 10  # fixed

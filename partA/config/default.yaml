@@ -9,15 +9,6 @@ dataset:
   class_names: ['Plantae', 'Mammalia', 'Animalia', 'Reptilia', 'Amphibia', 'Aves', 'Fungi', 'Arachnida', 'Mollusca', 'Insecta']
   batch_size: 5
 
-model:
-  name: defaultmodel
-  in_channels: 3
-  num_classes: 10
-  filters: 4
-  kernel_size: 3
-  dense_neurons: 100
-  num_classes: 10
-
 train:
   epochs: 1
   val_interval: 1

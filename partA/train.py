@@ -7,6 +7,7 @@ import numpy as np
 import wandb
 import math
 from torch.utils.data import DataLoader
+import torch.nn.functional as F
 
 def train_one_epoch(model, dl, optimizer, loss_fn, epoch=1, device='cpu', use_wandb=False):
     model.to(device)
@@ -39,7 +40,7 @@ def train_one_epoch(model, dl, optimizer, loss_fn, epoch=1, device='cpu', use_wa
     
     return avg_loss, acc
 
-def val_one_epoch(model, dl, loss_fn, device='cpu'):
+def val_one_epoch(model, dl, loss_fn, device='cpu', visualize = False):
     model.to(device)
     model.eval()
     running_loss = 0.0
@@ -115,13 +116,13 @@ def train(model, optimizer, loss_fn, dataloaders, config, model_config, schedule
 def evaluate(model, dl, loss_fn, device = 'cpu', use_wandb=False):
     test_loss, test_acc = 0, 0
     # test_loss, test_acc = val_one_epoch(model, dl, loss_fn, device=device)
-    indices, highest_losses, hardest_examples, true_labels, predictions = get_examples(model, dl.dataset, loss_fn, n = 10, hard = 10, device = device)
+    highest_losses, hardest_examples, true_labels, predictions = get_examples(model, dl.dataset, loss_fn, n = 3, hard = 3, device = device)
     if use_wandb:
         wandb.summary.update({"loss": test_loss, "accuracy": test_acc})
         wandb.log({"examples":
             [wandb.Image(hard_example, caption=str(int(pred)) + "," +  str(int(label)))
              for hard_example, pred, label in zip(hardest_examples, predictions, true_labels)]})
-    return indices, true_labels, predictions
+    return true_labels, predictions
 
 def get_examples(model, testing_set, loss_fn, n = 10, hard = 10, device = 'cpu'):
     model.eval()
@@ -147,6 +148,7 @@ def get_examples(model, testing_set, loss_fn, n = 10, hard = 10, device = 'cpu')
             else:
                 losses = torch.cat((losses, loss.view((1, 1))), 0)
                 predictions = torch.cat((predictions, pred), 0)
+            break
 
     argsort_loss = torch.argsort(losses, dim=0)
     print(argsort_loss.shape)
@@ -159,43 +161,92 @@ def get_examples(model, testing_set, loss_fn, n = 10, hard = 10, device = 'cpu')
     # predicted_labels = predictions[argsort_loss[-k:]]
 
     # return highest_k_losses, hardest_k_examples, true_labels, predicted_labels
-    return indices, losses[indices], testing_set[indices][0], testing_set[indices][1], predictions[indices]
+    return losses[indices], testing_set[indices][0], testing_set[indices][1], predictions[indices]
 
+def visualize_predictions(model, test_loader, NUM_BATCHES_TO_LOG=10, device='cpu'):
+        # W&B: Create a Table to store predictions for each test step
+    columns=["id", "image", "guess", "truth"]
+    for digit in range(10):
+      columns.append("score_" + str(digit))
+    test_table = wandb.Table(columns=columns)
 
-def imshow(inp, title=None):
-    """Display image for Tensor."""
-    inp = inp.numpy().transpose((1, 2, 0))
-    mean = np.array([0.485, 0.456, 0.406])
-    std = np.array([0.229, 0.224, 0.225])
-    inp = std * inp + mean
-    inp = np.clip(inp, 0, 1)
-    plt.imshow(inp)
-    if title is not None:
-        plt.title(title)
-    plt.pause(0.001)  # pause a bit so that plots are updated
-
-def visualize_model(model,dl, class_names, num_images=6, device='cpu'):
-    was_training = model.training
+    # test the model
     model.eval()
-    images_so_far = 0
-    fig = plt.figure()
-
+    model.to(device)
+    log_counter = 0
     with torch.no_grad():
-        for i, (inputs, labels) in enumerate(dl):
-            inputs = inputs.to(device)
+        correct = 0
+        total = 0
+        for images, labels in test_loader:
+            images = images.to(device)
             labels = labels.to(device)
+            outputs = model(images)
+            _, predicted = torch.max(outputs.data, 1)
+            if log_counter < NUM_BATCHES_TO_LOG:
+              log_test_predictions(images, labels, outputs, predicted, test_table, log_counter)
+              log_counter += 1
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
 
-            outputs = model(inputs)
-            _, preds = torch.max(outputs, 1)
+        acc = 100 * correct / total
+        # W&B: Log accuracy across training epochs, to visualize in the UI
+        print('Test Accuracy of the model on the 10000 test images: {} %'.format(acc))
 
-            for j in range(inputs.size()[0]):
-                images_so_far += 1
-                ax = plt.subplot(num_images//2, 2, images_so_far)
-                ax.axis('off')
-                ax.set_title(f'predicted: {class_names[preds[j]]}')
-                imshow(inputs.cpu().data[j])
+    # W&B: Log predictions table to wandb
+    wandb.log({"test_predictions" : test_table})
 
-                if images_so_far == num_images:
-                    model.train(mode=was_training)
-                    return
-        model.train(mode=was_training)
+
+# convenience funtion to log predictions for a batch of test images
+def log_test_predictions(images, labels, outputs, predicted, test_table, log_counter):
+  # obtain confidence scores for all classes
+  scores = F.softmax(outputs.data, dim=1)
+  log_scores = scores.cpu().numpy()
+  log_images = images.cpu().numpy()
+  log_labels = labels.cpu().numpy()
+  log_preds = predicted.cpu().numpy()
+  # adding ids based on the order of the images
+  _id = 0
+  for i, l, p, s in zip(log_images, log_labels, log_preds, log_scores):
+    # add required info to data table:
+    # id, image pixels, model's guess, true label, scores for all classes
+    img_id = str(_id) + "_" + str(log_counter)
+    test_table.add_data(img_id, wandb.Image(i), p, l, *s)
+    _id += 1
+
+# def imshow(inp, title=None):
+#     """Display image for Tensor."""
+#     inp = inp.numpy().transpose((1, 2, 0))
+#     mean = np.array([0.485, 0.456, 0.406])
+#     std = np.array([0.229, 0.224, 0.225])
+#     inp = std * inp + mean
+#     inp = np.clip(inp, 0, 1)
+#     plt.imshow(inp)
+#     if title is not None:
+#         plt.title(title)
+#     plt.pause(0.001)  # pause a bit so that plots are updated
+
+# def visualize_model(model,dl, class_names, num_images=6, device='cpu'):
+#     was_training = model.training
+#     model.eval()
+#     images_so_far = 0
+#     fig = plt.figure()
+
+#     with torch.no_grad():
+#         for i, (inputs, labels) in enumerate(dl):
+#             inputs = inputs.to(device)
+#             labels = labels.to(device)
+
+#             outputs = model(inputs)
+#             _, preds = torch.max(outputs, 1)
+
+#             for j in range(inputs.size()[0]):
+#                 images_so_far += 1
+#                 ax = plt.subplot(num_images//2, 2, images_so_far)
+#                 ax.axis('off')
+#                 ax.set_title(f'predicted: {class_names[preds[j]]}')
+#                 imshow(inputs.cpu().data[j])
+
+#                 if images_so_far == num_images:
+#                     model.train(mode=was_training)
+#                     return
+#         model.train(mode=was_training)

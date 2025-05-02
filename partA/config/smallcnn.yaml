@@ -1,6 +1,6 @@
 project: dla2parta
 
-use_wandb: False
+use_wandb: True
 
 dataset:
   name: CustomDataset
@@ -10,8 +10,8 @@ dataset:
   batch_size: 5
 
 train:
-  epochs: 1
-  val_interval: 1
+  epochs: 8
+  val_interval: 2
 
 model:
   name: simplecnn

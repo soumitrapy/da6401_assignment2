@@ -12,16 +12,16 @@ ACT_MAP = {
 }
 
 class SmallCNN(nn.Module):
-    def __init__(self, config):
+    def __init__(self, filters = [16,32,64,32,16],  activation = 'relu', kernel_size = 3,  dense_neurons = 100, num_layers=5, in_channels=3, num_classes = 10):
         super().__init__()
         # Accessing the parsed arguments
-        self.num_layers = config['num_layers']
-        self.filters = config['filters']
-        self.kernel_size = config['kernel_size']
-        self.activation_fn = ACT_MAP[config['activation'].lower()]
-        self.dense_neurons = config['dense_neurons']
-        self.num_classes = config['num_classes']
-        self.in_channels = config['in_channels']
+        self.num_layers = num_layers
+        self.filters = filters
+        self.kernel_size = kernel_size
+        self.activation_fn = ACT_MAP[activation.lower()]
+        self.dense_neurons = dense_neurons
+        self.num_classes = num_classes
+        self.in_channels = in_channels
 
         # Check that the length of filters matches the number of layers
         assert len(self.filters) == self.num_layers, "Length of filters must match number of layers"
